@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Processing</title>
+</head>
+<body>
+    <h1>Record Audio</h1>
+    <button id="startRecording">Start Recording</button>
+    <button id="stopRecording" disabled>Stop Recording</button>
+    <div id="audioContainer"></div>
+    <script>
+        let audioChunks = [];
+        let mediaRecorder;
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+            })
+            .catch(error => {
+                console.error('Error accessing microphone:', error);
+            });
+
+        document.getElementById('startRecording').addEventListener('click', () => {
+            audioChunks = [];
+            mediaRecorder.start();
+            document.getElementById('startRecording').disabled = true;
+            document.getElementById('stopRecording').disabled = false;
+        });
+
+        document.getElementById('stopRecording').addEventListener('click', () => {
+            mediaRecorder.stop();
+            document.getElementById('startRecording').disabled = false;
+            document.getElementById('stopRecording').disabled = true;
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioElement = document.createElement('audio');
+            audioElement.controls = true;
+            audioElement.src = audioUrl;
+            document.getElementById('audioContainer').innerHTML = '';
+            document.getElementById('audioContainer').appendChild(audioElement);
+            sendAudioToServer(audioBlob);
+        });
+
+        function sendAudioToServer(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio_data', audioBlob);
+            fetch('http:localhost:5000/process_audio', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log('Server response:', data);
+            })
+            .catch(error => {
+                console.error('Error sending audio to server:', error);
+            });
+        }
+    </script>
+</body>
+</html>

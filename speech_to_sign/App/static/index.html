@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speech Recognition</title>
+<style>
+
+  body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin: 5px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+#output {
+  margin-top: 20px;
+}
+
+#iframeContainer {
+  margin-top: 20px;
+}
+
+iframe {
+  border: none;
+}
+
+</style>
+
+</head>
+<body>
+<button id="startRecording">Start Recording</button>
+<button id="stopRecording">Stop Recording</button>
+<button id="sendWord">Send Detected Word</button>
+<div id="output"></div>
+<div id="urlOutput" style="display: none;"></div>
+
+<div id="iframeContainer"></div>
+
+
+
+<script>
+const startRecordingButton = document.getElementById('startRecording');
+const stopRecordingButton = document.getElementById('stopRecording');
+const sendWordButton = document.getElementById('sendWord');
+const outputDiv = document.getElementById('output');
+const urlOutputDiv = document.getElementById('urlOutput');
+
+let recognition = new window.webkitSpeechRecognition();
+recognition.continuous = true;
+recognition.lang = 'en-US';
+
+let detectedWord = '';
+
+startRecordingButton.addEventListener('click', () => {
+  recognition.start();
+  outputDiv.innerHTML = 'Listening...';
+});
+
+stopRecordingButton.addEventListener('click', () => {
+  recognition.stop();
+  outputDiv.innerHTML = 'Recording stopped.';
+});
+
+sendWordButton.addEventListener('click', () => {
+  if (detectedWord) {
+    sendWordToServer(detectedWord);
+  } else {
+    alert('No word detected.');
+  }
+});
+
+recognition.onresult = (event) => {
+  const transcript = event.results[event.results.length - 1][0].transcript;
+  detectedWord = transcript;
+  outputDiv.innerHTML = 'You said: ' + transcript;
+};
+
+recognition.onerror = (event) => {
+  outputDiv.innerHTML = 'Error occurred in recognition: ' + event.error;
+};
+
+function sendWordToServer(word) {
+  fetch('http://localhost:5000/send_word', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ word: word }),
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.status === 'Success' && data.iframeSrc) {
+      const iframe = document.createElement('iframe');
+      iframe.src = data.iframeSrc;
+      iframe.style.width = '80%';
+      iframe.style.height = '400px'; // Adjust height as needed
+      iframe.setAttribute('allow', 'autoplay'); // Allow autoplay
+      const iframeContainer = document.getElementById('iframeContainer');
+      iframeContainer.innerHTML = ''; // Clear previous content
+      iframeContainer.appendChild(iframe);
+      
+    } else {
+      throw new Error('Invalid response from server.');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+}
+
+</script>
+
+
+</body>
+</html>
